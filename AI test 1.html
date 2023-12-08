@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Обучение модели TensorFlow.js</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.8.0"></script>
+</head>
+<body>
+
+    <canvas id="canvas" width="400" height="400" style="border:1px solid #000;"></canvas>
+    <button onclick="trainModel()">Обучить модель</button>
+    <button onclick="classify()">Классифицировать</button>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Генерация данных: круги и квадраты
+        function generateData() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < 5; i++) {
+                drawCircle();
+                drawSquare();
+            }
+        }
+
+        function drawCircle() {
+            ctx.beginPath();
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * canvas.height;
+            ctx.arc(x, y, 20, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        function drawSquare() {
+            ctx.beginPath();
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * canvas.height;
+            ctx.rect(x, y, 40, 40);
+            ctx.fillStyle = 'blue';
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        // Создание и обучение модели
+        let model;
+        function createModel() {
+            model = tf.sequential();
+            model.add(tf.layers.dense({ units: 10, inputShape: [2], activation: 'sigmoid' }));
+            model.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
+            model.compile({ optimizer: tf.train.adam(0.1), loss: 'meanSquaredError' });
+        }
+
+        function trainModel() {
+            const circles = [];
+            const squares = [];
+
+            for (let i = 0; i < 5; i++) {
+                circles.push([Math.random(), Math.random()]);
+                squares.push([Math.random(), Math.random()]);
+            }
+
+            const xs = circles.concat(squares);
+            const ys = Array(10).fill(0).map(() => 1).concat(Array(10).fill(0).map(() => 0));
+
+            const xsTensor = tf.tensor2d(xs);
+            const ysTensor = tf.tensor2d(ys, [20, 1]);
+
+            createModel();
+
+            model.fit(xsTensor, ysTensor, { epochs: 100 })
+                .then(() => {
+                    console.log('Model trained');
+                });
+        }
+
+        // Классификация новых данных
+        function classify() {
+            generateData();
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const inputData = [];
+
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                const r = imageData.data[i] / 255;
+                const g = imageData.data[i + 1] / 255;
+                inputData.push([r, g]);
+            }
+
+            const inputTensor = tf.tensor2d(inputData);
+
+            const predictions = model.predict(inputTensor);
+
+            const predictionData = predictions.dataSync();
+
+            for (let i = 0; i < predictionData.length; i++) {
+                if (predictionData[i] > 0.5) {
+                    ctx.strokeStyle = 'red';
+                } else {
+                    ctx.strokeStyle = 'blue';
+                }
+
+                const x = i % canvas.width;
+                const y = Math.floor(i / canvas.width);
+
+                ctx.beginPath();
+                ctx.rect(x, y, 1, 1);
+                ctx.stroke();
+            }
+        }
+    </script>
+
+</body>
+</html>
